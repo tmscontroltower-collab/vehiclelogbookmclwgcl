@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ระบบบันทึกการใช้รถ & ค่าน้ำมัน</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Kanit -->
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0284c7',
+                            600: '#0369a1',
+                            700: '#0f4c81',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Kanit', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Kanit', sans-serif;
+            background-color: #f8fafc;
+            -webkit-tap-highlight-color: transparent;
+        }
+        /* Mobile Frame Simulator styling for desktop view */
+        .app-container {
+            max-width: 480px;
+            margin: 0 auto;
+            min-height: 100vh;
+            background-color: #ffffff;
+            position: relative;
+            box-shadow: 0 0 25px rgba(0, 0, 0, 0.08);
+            display: flex;
+            flex-direction: column;
+        }
+        /* Custom scrollbars for tables */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex justify-center items-center min-h-screen">
+
+    <div class="app-container w-full min-h-screen pb-20">
+        <!-- Top App Bar -->
+        <header class="bg-brand-600 text-white p-4 sticky top-0 z-30 shadow-md flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fa-solid fa-truck-fast text-xl"></i>
+                <h1 class="font-bold text-lg leading-tight" id="header-title">บันทึกการใช้รถ</h1>
+            </div>
+            <div id="ai-status-badge" class="hidden text-xs bg-emerald-500 text-white px-2 py-1 rounded-full flex items-center gap-1 animate-pulse">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> AI พร้อมทำงาน
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 p-4 overflow-y-auto">
+
+            <!-- TAB 1: ENTRY LOG FORM -->
+            <section id="tab-log" class="tab-content space-y-4">
+                
+                <!-- Start / End Toggle -->
+                <div class="bg-gray-100 p-1.5 rounded-2xl flex border border-gray-200">
+                    <button id="btn-type-start" onclick="setWorkType('START')" class="flex-1 py-2.5 rounded-xl font-medium text-sm flex items-center justify-center gap-2 transition-all shadow-sm bg-emerald-600 text-white">
+                        <i class="fa-solid fa-play"></i> เริ่มงาน (Start)
+                    </button>
+                    <button id="btn-type-end" onclick="setWorkType('END')" class="flex-1 py-2.5 rounded-xl font-medium text-sm flex items-center justify-center gap-2 transition-all text-gray-600 hover:text-gray-900">
+                        <i class="fa-solid fa-flag-checkered"></i> จบงาน (End)
+                    </button>
+                </div>
+
+                <!-- Driver & Vehicle Selection -->
+                <div class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm space-y-3">
+                    <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">ข้อมูลพื้นฐาน</h2>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">ทะเบียนรถ <span class="text-red-500">*</span></label>
+                            <select id="input-vehicle" onchange="calculateConsumptionPreview()" class="w-full bg-gray-50 border border-gray-200 text-gray-800 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                                <!-- Dynamic Options -->
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">ผู้ขับรถ <span class="text-red-500">*</span></label>
+                            <select id="input-driver" class="w-full bg-gray-50 border border-gray-200 text-gray-800 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                                <!-- Dynamic Options -->
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI Photo Scanner Section -->
+                <div class="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-4 rounded-2xl shadow-md space-y-3">
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center gap-2">
+                            <div class="p-2 bg-brand-500/30 rounded-lg text-brand-500">
+                                <i class="fa-solid fa-camera-retro text-lg text-sky-400"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-sm font-semibold">AI Auto-Scan</h3>
+                                <p class="text-xs text-slate-400">ถ่ายรูป/อัปโหลด สลิปน้ำมัน หรือ เลขไมล์</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="upload-box" class="border-2 border-dashed border-slate-700 hover:border-sky-500 rounded-xl p-4 text-center cursor-pointer transition-all bg-slate-800/50 relative overflow-hidden" onclick="document.getElementById('file-input').click()">
+                        <input type="file" id="file-input" accept="image/*" class="hidden" onchange="handleImageScan(event)">
+                        
+                        <div id="scan-placeholder" class="space-y-1">
+                            <i class="fa-solid fa-cloud-arrow-up text-2xl text-slate-400"></i>
+                            <p class="text-xs text-slate-300">กดเพื่อถ่ายภาพ หรือ เลือกรูปสลิป/หน้าปัด</p>
+                            <span class="inline-block text-[10px] bg-slate-700 text-slate-300 px-2 py-0.5 rounded">AI ดึงค่าน้ำมันและเลขไมล์ให้อัตโนมัติ</span>
+                        </div>
+
+                        <!-- Scan Preview & Loading -->
+                        <div id="scan-preview-container" class="hidden relative">
+                            <img id="scan-img-preview" src="" class="max-h-36 mx-auto rounded-lg object-contain">
+                            <div id="scan-loader" class="hidden absolute inset-0 bg-slate-900/80 backdrop-blur-sm rounded-lg flex flex-col items-center justify-center space-y-2">
+                                <div class="w-7 h-7 border-3 border-sky-400 border-t-transparent rounded-full animate-spin"></div>
+                                <p class="text-xs text-sky-400 font-medium animate-pulse">AI กำลังวิเคราะห์รูปภาพ...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Odometer & Fuel Form -->
+                <div class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm space-y-4">
+                    <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">บันทึกเลขไมล์ & ค่าน้ำมัน</h2>
+                    
+                    <div>
+                        <label class="block text-xs text-gray-600 mb-1">เลขไมล์ปัจจุบัน (กม.) <span class="text-red-500">*</span></label>
+                        <div class="relative">
+                            <input type="number" id="input-odometer" oninput="calculateConsumptionPreview()" placeholder="เช่น 124500" class="w-full bg-gray-50 border border-gray-200 text-gray-800 text-base font-semibold rounded-xl p-3 pl-10 focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                            <i class="fa-solid fa-gauge absolute left-3.5 top-3.5 text-gray-400"></i>
+                        </div>
+                        <p id="last-odo-info" class="text-[11px] text-gray-400 mt-1">เลขไมล์บันทึกล่าสุด: - กม.</p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 pt-2 border-t border-gray-100">
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">จำนวนเงินเติมน้ำมัน (บาท)</label>
+                            <input type="number" id="input-fuel-cost" placeholder="0.00" class="w-full bg-gray-50 border border-gray-200 text-gray-800 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">จำนวนลิตร (ลิตร)</label>
+                            <input type="number" step="0.01" id="input-fuel-liters" oninput="calculateConsumptionPreview()" placeholder="0.00" class="w-full bg-gray-50 border border-gray-200 text-gray-800 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between bg-sky-50 p-3 rounded-xl border border-sky-100">
+                        <span class="text-xs text-sky-800 font-medium">เติมน้ำมันเต็มถังหรือไม่?</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="input-full-tank" onchange="calculateConsumptionPreview()" class="sr-only peer">
+                            <div class="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sky-600"></div>
+                        </label>
+                    </div>
+
+                    <!-- Calculated Consumption Card -->
+                    <div class="bg-gradient-to-r from-emerald-500 to-teal-600 text-white p-3.5 rounded-xl flex justify-between items-center shadow-sm">
+                        <div>
+                            <p class="text-[11px] opacity-90">คำนวณอัตราสิ้นเปลือง</p>
+                            <p class="text-xs opacity-75">(ระยะทางวิ่ง / จำนวนลิตร)</p>
+                        </div>
+                        <div class="text-right">
+                            <span id="preview-consumption" class="text-xl font-bold">0.00</span>
+                            <span class="text-xs ml-1">กม./ลิตร</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Additional Expenses -->
+                <div class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm space-y-3">
+                    <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">ค่าใช้จ่ายเพิ่มเติม</h2>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">ค่าทางด่วน (บาท)</label>
+                            <input type="number" id="input-toll" placeholder="0" class="w-full bg-gray-50 border border-gray-200 text-gray-800 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">ค่าจอดรถ (บาท)</label>
+                            <input type="number" id="input-parking" placeholder="0" class="w-full bg-gray-50 border border-gray-200 text-gray-800 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-600 mb-1">หมายเหตุเพิ่มเติม</label>
+                        <input type="text" id="input-notes" placeholder="เช่น เดินทางไปพบลูกค้า จ.นนทบุรี" class="w-full bg-gray-50 border border-gray-200 text-gray-800 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <button onclick="saveRecord()" class="w-full bg-brand-600 hover:bg-brand-700 active:scale-[0.98] text-white font-semibold py-3.5 rounded-xl shadow-md transition-all flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-floppy-disk"></i> บันทึกข้อมูล
+                </button>
+            </section>
+
+            <!-- TAB 2: SPREADSHEET SUMMARY -->
+            <section id="tab-spreadsheet" class="tab-content hidden space-y-3">
+                <div class="flex justify-between items-center bg-white p-3 rounded-2xl border border-gray-100 shadow-sm">
+                    <div class="flex-1 mr-2">
+                        <select id="filter-vehicle" onchange="renderSpreadsheet()" class="w-full bg-gray-50 border border-gray-200 text-gray-700 text-xs rounded-xl p-2 focus:outline-none">
+                            <option value="ALL">รถทุกคัน</option>
+                            <!-- Dynamic vehicle filter -->
+                        </select>
+                    </div>
+                    <button onclick="exportToCSV()" class="bg-emerald-600 text-white px-3 py-2 rounded-xl text-xs font-medium flex items-center gap-1 shadow-sm hover:bg-emerald-700">
+                        <i class="fa-solid fa-file-csv"></i> Export CSV
+                    </button>
+                </div>
+
+                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto no-scrollbar">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-100 text-slate-600 font-semibold border-b border-gray-200">
+                                <tr>
+                                    <th class="p-3 whitespace-nowrap">วัน/เวลา</th>
+                                    <th class="p-3 whitespace-nowrap">ประเภท</th>
+                                    <th class="p-3 whitespace-nowrap">ทะเบียนรถ</th>
+                                    <th class="p-3 whitespace-nowrap">ผู้ขับ</th>
+                                    <th class="p-3 whitespace-nowrap text-right">เลขไมล์</th>
+                                    <th class="p-3 whitespace-nowrap text-right">ระยะทาง (กม.)</th>
+                                    <th class="p-3 whitespace-nowrap text-right">ค่าน้ำมัน</th>
+                                    <th class="p-3 whitespace-nowrap text-right">ลิตร</th>
+                                    <th class="p-3 whitespace-nowrap text-center">เต็มถัง</th>
+                                    <th class="p-3 whitespace-nowrap text-right">อัตราสิ้นเปลือง</th>
+                                    <th class="p-3 whitespace-nowrap text-right">ทางด่วน/จอด</th>
+                                    <th class="p-3 whitespace-nowrap text-center">จัดการ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="spreadsheet-body" class="divide-y divide-gray-100">
+                                <!-- Dynamic rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 3: ADMIN DASHBOARD -->
+            <section id="tab-admin" class="tab-content hidden space-y-4">
+                <!-- Summary KPI Cards -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-white p-3.5 rounded-2xl border border-gray-100 shadow-sm space-y-1">
+                        <div class="flex items-center text-xs text-gray-500 gap-1.5">
+                            <i class="fa-solid fa-route text-sky-500"></i> ระยะทางรวมทั้งหมด
+                        </div>
+                        <p id="kpi-total-distance" class="text-xl font-bold text-gray-800">0 <span class="text-xs font-normal text-gray-500">กม.</span></p>
+                    </div>
+
+                    <div class="bg-white p-3.5 rounded-2xl border border-gray-100 shadow-sm space-y-1">
+                        <div class="flex items-center text-xs text-gray-500 gap-1.5">
+                            <i class="fa-solid fa-gas-pump text-amber-500"></i> รวมค่าน้ำมัน
+                        </div>
+                        <p id="kpi-total-fuel" class="text-xl font-bold text-gray-800">0 <span class="text-xs font-normal text-gray-500">บาท</span></p>
+                    </div>
+
+                    <div class="bg-white p-3.5 rounded-2xl border border-gray-100 shadow-sm space-y-1">
+                        <div class="flex items-center text-xs text-gray-500 gap-1.5">
+                            <i class="fa-solid fa-receipt text-indigo-500"></i> เที่ยววิ่งทั้งหมด
+                        </div>
+                        <p id="kpi-total-trips" class="text-xl font-bold text-gray-800">0 <span class="text-xs font-normal text-gray-500">ครั้ง</span></p>
+                    </div>
+
+                    <div class="bg-white p-3.5 rounded-2xl border border-gray-100 shadow-sm space-y-1">
+                        <div class="flex items-center text-xs text-gray-500 gap-1.5">
+                            <i class="fa-solid fa-leaf text-emerald-500"></i> อัตราสิ้นเปลืองเฉลี่ย
+                        </div>
+                        <p id="kpi-avg-consumption" class="text-xl font-bold text-gray-800">0.00 <span class="text-xs font-normal text-gray-500">กม./ลิตร</span></p>
+                    </div>
+                </div>
+
+                <!-- Vehicle Fleet Status -->
+                <div class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm space-y-3">
+                    <h3 class="text-sm font-bold text-gray-800 flex items-center gap-2">
+                        <i class="fa-solid fa-car text-brand-600"></i> สถานะรถยนต์ในระบบ (Fleet Overview)
+                    </h3>
+                    <div id="fleet-status-list" class="space-y-2.5">
+                        <!-- Dynamic fleet status list -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 4: SETTINGS -->
+            <section id="tab-settings" class="tab-content hidden space-y-4">
+                <!-- Change Admin PIN Section -->
+                <div class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm space-y-3">
+                    <h3 class="text-sm font-bold text-gray-800 flex items-center justify-between">
+                        <span class="flex items-center gap-2">
+                            <i class="fa-solid fa-key text-amber-500"></i> เปลี่ยนรหัสผ่าน Admin PIN
+                        </span>
+                        <button onclick="lockSettings()" class="text-xs text-rose-500 hover:text-rose-700 flex items-center gap-1">
+                            <i class="fa-solid fa-lock"></i> ล็อคหน้านี้
+                        </button>
+                    </h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="password" id="new-pin-input" maxlength="6" placeholder="รหัส PIN ใหม่" class="bg-gray-50 border border-gray-200 text-xs rounded-xl p-2.5 text-center font-mono focus:outline-none">
+                        <button onclick="changeAdminPin()" class="bg-amber-500 text-white px-3 py-2.5 rounded-xl text-xs font-medium hover:bg-amber-600">
+                            บันทึก PIN ใหม่
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Manage Vehicles -->
+                <div class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm space-y-3">
+                    <h3 class="text-sm font-bold text-gray-800 flex items-center gap-2">
+                        <i class="fa-solid fa-car-side text-brand-600"></i> จัดการทะเบียนรถยนต์
+                    </h3>
+                    <div class="flex gap-2">
+                        <input type="text" id="new-vehicle-input" placeholder="เช่น 1กข-9999 กทม." class="flex-1 bg-gray-50 border border-gray-200 text-xs rounded-xl p-2.5 focus:outline-none">
+                        <button onclick="addVehicle()" class="bg-brand-600 text-white px-4 py-2.5 rounded-xl text-xs font-medium hover:bg-brand-700">
+                            + เพิ่ม
+                        </button>
+                    </div>
+                    <ul id="setting-vehicles-list" class="divide-y divide-gray-100 text-xs">
+                        <!-- Dynamic vehicle items -->
+                    </ul>
+                </div>
+
+                <!-- Manage Drivers -->
+                <div class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm space-y-3">
+                    <h3 class="text-sm font-bold text-gray-800 flex items-center gap-2">
+                        <i class="fa-solid fa-id-card text-brand-600"></i> จัดการชื่อผู้ขับขี่
+                    </h3>
+                    <div class="flex gap-2">
+                        <input type="text" id="new-driver-input" placeholder="เช่น สมชาย ใจดี" class="flex-1 bg-gray-50 border border-gray-200 text-xs rounded-xl p-2.5 focus:outline-none">
+                        <button onclick="addDriver()" class="bg-brand-600 text-white px-4 py-2.5 rounded-xl text-xs font-medium hover:bg-brand-700">
+                            + เพิ่ม
+                        </button>
+                    </div>
+                    <ul id="setting-drivers-list" class="divide-y divide-gray-100 text-xs">
+                        <!-- Dynamic driver items -->
+                    </ul>
+                </div>
+
+                <div class="bg-amber-50 border border-amber-200 p-3 rounded-xl text-amber-800 text-xs flex items-start gap-2">
+                    <i class="fa-solid fa-circle-info text-amber-600 mt-0.5"></i>
+                    <span>ข้อมูลทั้งหมดจะถูกบันทึกไว้ในเบราว์เซอร์ของคุณ (Local Storage) คุณสามารถล้างข้อมูลเพื่อเริ่มต้นใหม่ได้</span>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Bottom Navigation Bar -->
+        <nav class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] bg-white border-t border-gray-200 z-40 px-2 py-1.5 flex justify-around items-center text-gray-500 shadow-lg">
+            <button onclick="switchTab('log')" id="nav-log" class="flex flex-col items-center py-1 px-3 text-brand-600 font-medium">
+                <i class="fa-solid fa-pen-to-square text-lg"></i>
+                <span class="text-[10px] mt-0.5">บันทึก</span>
+            </button>
+            <button onclick="switchTab('spreadsheet')" id="nav-spreadsheet" class="flex flex-col items-center py-1 px-3 hover:text-brand-600">
+                <i class="fa-solid fa-table text-lg"></i>
+                <span class="text-[10px] mt-0.5">สรุปผล</span>
+            </button>
+            <button onclick="switchTab('admin')" id="nav-admin" class="flex flex-col items-center py-1 px-3 hover:text-brand-600">
+                <i class="fa-solid fa-chart-pie text-lg"></i>
+                <span class="text-[10px] mt-0.5">Dashboard</span>
+            </button>
+            <button onclick="switchTab('settings')" id="nav-settings" class="flex flex-col items-center py-1 px-3 hover:text-brand-600">
+                <i class="fa-solid fa-gear text-lg"></i>
+                <span class="text-[10px] mt-0.5">ตั้งค่า</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- Admin Password Prompt Modal -->
+    <div id="pin-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl p-6 w-full max-w-xs text-center shadow-2xl space-y-4 animate-scale-up">
+            <div class="w-14 h-14 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mx-auto text-2xl shadow-inner">
+                <i class="fa-solid fa-user-shield"></i>
+            </div>
+            <div>
+                <h3 class="font-bold text-gray-800 text-base">เข้าสู่ส่วนการตั้งค่า</h3>
+                <p class="text-xs text-gray-500 mt-1">กรุณากรอกรหัสผ่าน Admin PIN</p>
+                <p class="text-[10px] text-gray-400 mt-0.5">(รหัสผ่านเริ่มต้น: <span class="font-mono font-semibold text-gray-600">1234</span>)</p>
+            </div>
+
+            <div class="space-y-2">
+                <input type="password" id="input-admin-pin" maxlength="6" autofocus placeholder="••••" class="w-full text-center text-xl font-mono tracking-widest bg-gray-50 border border-gray-200 rounded-xl p-3 focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                <p id="pin-error-msg" class="text-xs text-rose-500 font-medium hidden">รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่</p>
+            </div>
+
+            <div class="flex gap-2">
+                <button onclick="cancelPinPrompt()" class="flex-1 py-2.5 rounded-xl border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50">
+                    ยกเลิก
+                </button>
+                <button onclick="verifyAdminPin()" class="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold shadow-md">
+                    ยืนยัน
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast Modal -->
+    <div id="toast" class="fixed top-5 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs px-4 py-2.5 rounded-full shadow-xl z-50 transition-opacity duration-300 opacity-0 pointer-events-none flex items-center gap-2">
+        <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400"></i>
+        <span id="toast-message">บันทึกสำเร็จ</span>
+    </div>
+
+    <script>
+        // --- INITIAL STATE & LOCAL STORAGE ---
+        const DEFAULT_VEHICLES = ["กข-1234 กรุงเทพฯ", "ขค-5678 นนทบุรี", "ฮฮ-9999 ชลบุรี"];
+        const DEFAULT_DRIVERS = ["นายสมชาย ใจดี", "นายวิชัย ขยันวิ่ง", "นายอนันต์ มั่นคง"];
+        
+        let state = {
+            workType: 'START',
+            adminPin: localStorage.getItem('vlog_admin_pin') || '1234',
+            isAdminUnlocked: false,
+            vehicles: JSON.parse(localStorage.getItem('vlog_vehicles')) || DEFAULT_VEHICLES,
+            drivers: JSON.parse(localStorage.getItem('vlog_drivers')) || DEFAULT_DRIVERS,
+            records: JSON.parse(localStorage.getItem('vlog_records')) || getMockData()
+        };
+
+        // --- MOCK INITIAL DATA ---
+        function getMockData() {
+            return [
+                {
+                    id: 'rec_1',
+                    timestamp: new Date(Date.now() - 86400000 * 2).toISOString(),
+                    type: 'START',
+                    vehicle: 'กข-1234 กรุงเทพฯ',
+                    driver: 'นายสมชาย ใจดี',
+                    odometer: 102000,
+                    distanceRun: 0,
+                    fuelCost: 0,
+                    fuelLiters: 0,
+                    fullTank: false,
+                    consumption: 0,
+                    tollFee: 0,
+                    parkingFee: 0,
+                    notes: 'เริ่มงานประจำวัน'
+                },
+                {
+                    id: 'rec_2',
+                    timestamp: new Date(Date.now() - 86400000 * 1.5).toISOString(),
+                    type: 'END',
+                    vehicle: 'กข-1234 กรุงเทพฯ',
+                    driver: 'นายสมชาย ใจดี',
+                    odometer: 102450,
+                    distanceRun: 450,
+                    fuelCost: 1200,
+                    fuelLiters: 35.5,
+                    fullTank: true,
+                    consumption: 12.68,
+                    tollFee: 110,
+                    parkingFee: 50,
+                    notes: 'เติมน้ำมันก่อนกลับศูนย์'
+                }
+            ];
+        }
+
+        // --- CORE APPLICATION INIT ---
+        window.onload = function() {
+            renderVehicleOptions();
+            renderDriverOptions();
+            renderSettingLists();
+            calculateConsumptionPreview();
+            renderSpreadsheet();
+            renderAdminDashboard();
+        };
+
+        function saveState() {
+            localStorage.setItem('vlog_admin_pin', state.adminPin);
+            localStorage.setItem('vlog_vehicles', JSON.stringify(state.vehicles));
+            localStorage.setItem('vlog_drivers', JSON.stringify(state.drivers));
+            localStorage.setItem('vlog_records', JSON.stringify(state.records));
+        }
+
+        // --- TAB SWITCHING LOGIC & ADMIN LOCK ---
+        function switchTab(tabName) {
+            // Guard check for Settings Tab
+            if (tabName === 'settings' && !state.isAdminUnlocked) {
+                openPinPrompt();
+                return;
+            }
+
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+
+            const navs = ['log', 'spreadsheet', 'admin', 'settings'];
+            navs.forEach(nav => {
+                const btn = document.getElementById(`nav-${nav}`);
+                if (nav === tabName) {
+                    btn.className = "flex flex-col items-center py-1 px-3 text-brand-600 font-medium";
+                } else {
+                    btn.className = "flex flex-col items-center py-1 px-3 text-gray-500 hover:text-brand-600";
+                }
+            });
+
+            const titles = {
+                'log': 'บันทึกการใช้รถ',
+                'spreadsheet': 'ตารางสรุปบันทึกการวิ่ง',
+                'admin': 'Admin Dashboard',
+                'settings': 'ตั้งค่าระบบ'
+            };
+            document.getElementById('header-title').innerText = titles[tabName];
+
+            if (tabName === 'spreadsheet') renderSpreadsheet();
+            if (tabName === 'admin') renderAdminDashboard();
+        }
+
+        // --- ADMIN PIN LOCKDOWN SYSTEM ---
+        function openPinPrompt() {
+            document.getElementById('pin-modal').classList.remove('hidden');
+            const input = document.getElementById('input-admin-pin');
+            input.value = '';
+            document.getElementById('pin-error-msg').classList.add('hidden');
+            setTimeout(() => input.focus(), 100);
+        }
+
+        function cancelPinPrompt() {
+            document.getElementById('pin-modal').classList.add('hidden');
+        }
+
+        function verifyAdminPin() {
+            const inputPin = document.getElementById('input-admin-pin').value.trim();
+            const errorMsg = document.getElementById('pin-error-msg');
+
+            if (inputPin === state.adminPin) {
+                state.isAdminUnlocked = true;
+                document.getElementById('pin-modal').classList.add('hidden');
+                errorMsg.classList.add('hidden');
+                switchTab('settings');
+                showToast('เข้าสู่ระบบ Admin สำเร็จ', 'fa-unlock');
+            } else {
+                errorMsg.classList.remove('hidden');
+                const pinInputBox = document.getElementById('input-admin-pin');
+                pinInputBox.classList.add('border-rose-500', 'animate-shake');
+                setTimeout(() => pinInputBox.classList.remove('border-rose-500', 'animate-shake'), 500);
+            }
+        }
+
+        function lockSettings() {
+            state.isAdminUnlocked = false;
+            switchTab('log');
+            showToast('ล็อคหน้าตั้งค่าแล้ว', 'fa-lock');
+        }
+
+        function changeAdminPin() {
+            const newPin = document.getElementById('new-pin-input').value.trim();
+            if (newPin.length < 4) {
+                showToast('รหัส PIN ต้องมีอย่างน้อย 4 หลัก', 'fa-triangle-exclamation', true);
+                return;
+            }
+            state.adminPin = newPin;
+            saveState();
+            document.getElementById('new-pin-input').value = '';
+            showToast('เปลี่ยนรหัสผ่าน Admin PIN สำเร็จ');
+        }
+
+        // Allow ENTER key to submit PIN
+        document.getElementById('input-admin-pin')?.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') verifyAdminPin();
+        });
+
+        // --- WORK TYPE SWITCH (START / END) ---
+        function setWorkType(type) {
+            state.workType = type;
+            const btnStart = document.getElementById('btn-type-start');
+            const btnEnd = document.getElementById('btn-type-end');
+
+            if (type === 'START') {
+                btnStart.className = "flex-1 py-2.5 rounded-xl font-medium text-sm flex items-center justify-center gap-2 transition-all shadow-sm bg-emerald-600 text-white";
+                btnEnd.className = "flex-1 py-2.5 rounded-xl font-medium text-sm flex items-center justify-center gap-2 transition-all text-gray-600 hover:text-gray-900";
+            } else {
+                btnEnd.className = "flex-1 py-2.5 rounded-xl font-medium text-sm flex items-center justify-center gap-2 transition-all shadow-sm bg-rose-600 text-white";
+                btnStart.className = "flex-1 py-2.5 rounded-xl font-medium text-sm flex items-center justify-center gap-2 transition-all text-gray-600 hover:text-gray-900";
+            }
+        }
+
+        // --- RENDER DROPDOWNS ---
+        function renderVehicleOptions() {
+            const select = document.getElementById('input-vehicle');
+            const filter = document.getElementById('filter-vehicle');
+            
+            select.innerHTML = state.vehicles.map(v => `<option value="${v}">${v}</option>`).join('');
+            
+            if (filter) {
+                filter.innerHTML = `<option value="ALL">รถทุกคัน</option>` + state.vehicles.map(v => `<option value="${v}">${v}</option>`).join('');
+            }
+        }
+
+        function renderDriverOptions() {
+            const select = document.getElementById('input-driver');
+            select.innerHTML = state.drivers.map(d => `<option value="${d}">${d}</option>`).join('');
+        }
+
+        // --- SIMULATED AI OCR SCANNER ---
+        function handleImageScan(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // Show Preview & Loading Spinner
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('scan-placeholder').classList.add('hidden');
+                document.getElementById('scan-preview-container').classList.remove('hidden');
+                document.getElementById('scan-img-preview').src = e.target.result;
+                document.getElementById('scan-loader').classList.remove('hidden');
+
+                // Simulate AI OCR Process Delay
+                setTimeout(() => {
+                    document.getElementById('scan-loader').classList.add('hidden');
+                    
+                    // Simulated extracted values from OCR AI
+                    const mockOdometer = Math.floor(102500 + Math.random() * 300);
+                    const mockCost = (Math.random() * (1500 - 800) + 800).toFixed(2);
+                    const mockLiters = (mockCost / 35.5).toFixed(2);
+
+                    document.getElementById('input-odometer').value = mockOdometer;
+                    document.getElementById('input-fuel-cost').value = mockCost;
+                    document.getElementById('input-fuel-liters').value = mockLiters;
+                    document.getElementById('input-full-tank').checked = true;
+
+                    calculateConsumptionPreview();
+                    showToast('AI อ่านข้อมูลเรียบร้อยแล้ว!', 'fa-wand-magic-sparkles');
+                }, 1800);
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // --- CALCULATIONS & PREVIEW ---
+        function calculateConsumptionPreview() {
+            const selectedVehicle = document.getElementById('input-vehicle').value;
+            const currentOdo = parseFloat(document.getElementById('input-odometer').value) || 0;
+            const liters = parseFloat(document.getElementById('input-fuel-liters').value) || 0;
+
+            // Find last record for this vehicle
+            const prevRecords = state.records
+                .filter(r => r.vehicle === selectedVehicle)
+                .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+            const lastRecord = prevRecords.length > 0 ? prevRecords[0] : null;
+
+            if (lastRecord) {
+                document.getElementById('last-odo-info').innerText = `เลขไมล์บันทึกล่าสุด: ${lastRecord.odometer.toLocaleString()} กม.`;
+            } else {
+                document.getElementById('last-odo-info').innerText = `เลขไมล์บันทึกล่าสุด: - กม. (ยังไม่มีข้อมูล)`;
+            }
+
+            if (lastRecord && currentOdo > lastRecord.odometer && liters > 0) {
+                const distance = currentOdo - lastRecord.odometer;
+                const consumption = (distance / liters).toFixed(2);
+                document.getElementById('preview-consumption').innerText = consumption;
+            } else {
+                document.getElementById('preview-consumption').innerText = "0.00";
+            }
+        }
+
+        // --- SAVE RECORD ---
+        function saveRecord() {
+            const vehicle = document.getElementById('input-vehicle').value;
+            const driver = document.getElementById('input-driver').value;
+            const odometer = parseFloat(document.getElementById('input-odometer').value);
+            const fuelCost = parseFloat(document.getElementById('input-fuel-cost').value) || 0;
+            const fuelLiters = parseFloat(document.getElementById('input-fuel-liters').value) || 0;
+            const fullTank = document.getElementById('input-full-tank').checked;
+            const tollFee = parseFloat(document.getElementById('input-toll').value) || 0;
+            const parkingFee = parseFloat(document.getElementById('input-parking').value) || 0;
+            const notes = document.getElementById('input-notes').value;
+
+            if (!odometer) {
+                showToast('กรุณากรอกเลขไมล์ปัจจุบัน', 'fa-triangle-exclamation', true);
+                return;
+            }
+
+            // Calculate distance & consumption from previous record of SAME vehicle
+            const prevRecords = state.records
+                .filter(r => r.vehicle === vehicle)
+                .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            
+            const lastRecord = prevRecords[0];
+            let distanceRun = 0;
+            let consumption = 0;
+
+            if (lastRecord) {
+                if (odometer < lastRecord.odometer) {
+                    showToast('เลขไมล์ต้องมากกว่าครั้งก่อนหน้า', 'fa-circle-xmark', true);
+                    return;
+                }
+                distanceRun = odometer - lastRecord.odometer;
+                if (fuelLiters > 0 && distanceRun > 0) {
+                    consumption = parseFloat((distanceRun / fuelLiters).toFixed(2));
+                }
+            }
+
+            const newRecord = {
+                id: 'rec_' + Date.now(),
+                timestamp: new Date().toISOString(),
+                type: state.workType,
+                vehicle,
+                driver,
+                odometer,
+                distanceRun,
+                fuelCost,
+                fuelLiters,
+                fullTank,
+                consumption,
+                tollFee,
+                parkingFee,
+                notes
+            };
+
+            state.records.unshift(newRecord);
+            saveState();
+
+            // Clear Form Inputs
+            document.getElementById('input-odometer').value = '';
+            document.getElementById('input-fuel-cost').value = '';
+            document.getElementById('input-fuel-liters').value = '';
+            document.getElementById('input-full-tank').checked = false;
+            document.getElementById('input-toll').value = '';
+            document.getElementById('input-parking').value = '';
+            document.getElementById('input-notes').value = '';
+            document.getElementById('scan-placeholder').classList.remove('hidden');
+            document.getElementById('scan-preview-container').classList.add('hidden');
+
+            showToast('บันทึกข้อมูลสำเร็จเรียบร้อย');
+            calculateConsumptionPreview();
+        }
+
+        // --- DELETE RECORD ---
+        function deleteRecord(id) {
+            state.records = state.records.filter(r => r.id !== id);
+            saveState();
+            renderSpreadsheet();
+            renderAdminDashboard();
+            showToast('ลบรายการสำเร็จ');
+        }
+
+        // --- RENDER SPREADSHEET TAB ---
+        function renderSpreadsheet() {
+            const filterVehicle = document.getElementById('filter-vehicle').value;
+            const tbody = document.getElementById('spreadsheet-body');
+
+            let records = state.records;
+            if (filterVehicle !== 'ALL') {
+                records = records.filter(r => r.vehicle === filterVehicle);
+            }
+
+            if (records.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="12" class="text-center py-6 text-gray-400">ไม่พบบันทึกข้อมูล</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = records.map(r => {
+                const dateStr = new Date(r.timestamp).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' });
+                const typeBadge = r.type === 'START' 
+                    ? `<span class="bg-emerald-100 text-emerald-700 font-semibold px-2 py-0.5 rounded text-[10px]">เริ่มงาน</span>`
+                    : `<span class="bg-rose-100 text-rose-700 font-semibold px-2 py-0.5 rounded text-[10px]">จบงาน</span>`;
+
+                return `
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="p-3 whitespace-nowrap text-gray-500">${dateStr}</td>
+                        <td class="p-3 whitespace-nowrap">${typeBadge}</td>
+                        <td class="p-3 whitespace-nowrap font-medium text-gray-800">${r.vehicle}</td>
+                        <td class="p-3 whitespace-nowrap text-gray-600">${r.driver}</td>
+                        <td class="p-3 whitespace-nowrap text-right font-mono">${r.odometer.toLocaleString()}</td>
+                        <td class="p-3 whitespace-nowrap text-right font-mono text-emerald-600 font-semibold">+${r.distanceRun}</td>
+                        <td class="p-3 whitespace-nowrap text-right font-mono">${r.fuelCost > 0 ? r.fuelCost.toLocaleString() : '-'}</td>
+                        <td class="p-3 whitespace-nowrap text-right font-mono">${r.fuelLiters > 0 ? r.fuelLiters : '-'}</td>
+                        <td class="p-3 whitespace-nowrap text-center">${r.fullTank ? '<i class="fa-solid fa-circle-check text-emerald-500"></i>' : '-'}</td>
+                        <td class="p-3 whitespace-nowrap text-right font-mono font-medium">${r.consumption > 0 ? r.consumption + ' กม./ล.' : '-'}</td>
+                        <td class="p-3 whitespace-nowrap text-right font-mono">${(r.tollFee + r.parkingFee) > 0 ? (r.tollFee + r.parkingFee).toLocaleString() : '-'}</td>
+                        <td class="p-3 whitespace-nowrap text-center">
+                            <button onclick="deleteRecord('${r.id}')" class="text-rose-500 hover:text-rose-700 p-1">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // --- EXPORT TO CSV ---
+        function exportToCSV() {
+            if (state.records.length === 0) {
+                showToast('ไม่มีข้อมูลให้ส่งออก', 'fa-triangle-exclamation', true);
+                return;
+            }
+
+            let csvContent = "\uFEFF"; // UTF-8 BOM for Thai Language support in Excel
+            csvContent += "วันเวลา,ประเภท,ทะเบียนรถ,คนขับ,เลขไมล์,ระยะทาง(กม.),ค่าน้ำมัน(บาท),จำนวนลิตร,เต็มถัง,อัตราสิ้นเปลือง(กม./ลิตร),ค่าทางด่วน(บาท),ค่าจอดรถ(บาท),หมายเหตุ\n";
+
+            state.records.forEach(r => {
+                const dateStr = new Date(r.timestamp).toLocaleString('th-TH');
+                csvContent += `"${dateStr}","${r.type}","${r.vehicle}","${r.driver}",${r.odometer},${r.distanceRun},${r.fuelCost},${r.fuelLiters},"${r.fullTank ? 'ใช่' : 'ไม่'}",${r.consumption},${r.tollFee},${r.parkingFee},"${r.notes || ''}"\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", `vehicle_log_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // --- RENDER ADMIN DASHBOARD ---
+        function renderAdminDashboard() {
+            const totalDistance = state.records.reduce((acc, curr) => acc + (curr.distanceRun || 0), 0);
+            const totalFuel = state.records.reduce((acc, curr) => acc + (curr.fuelCost || 0), 0);
+            const totalTrips = state.records.length;
+
+            const recordsWithCons = state.records.filter(r => r.consumption > 0);
+            const avgConsumption = recordsWithCons.length > 0 
+                ? (recordsWithCons.reduce((acc, curr) => acc + curr.consumption, 0) / recordsWithCons.length).toFixed(2)
+                : "0.00";
+
+            document.getElementById('kpi-total-distance').innerHTML = `${totalDistance.toLocaleString()} <span class="text-xs font-normal text-gray-500">กม.</span>`;
+            document.getElementById('kpi-total-fuel').innerHTML = `${totalFuel.toLocaleString()} <span class="text-xs font-normal text-gray-500">บาท</span>`;
+            document.getElementById('kpi-total-trips').innerHTML = `${totalTrips} <span class="text-xs font-normal text-gray-500">ครั้ง</span>`;
+            document.getElementById('kpi-avg-consumption').innerHTML = `${avgConsumption} <span class="text-xs font-normal text-gray-500">กม./ลิตร</span>`;
+
+            // Fleet overview per vehicle
+            const fleetList = document.getElementById('fleet-status-list');
+            fleetList.innerHTML = state.vehicles.map(v => {
+                const vRecords = state.records.filter(r => r.vehicle === v).sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+                const lastRec = vRecords[0];
+
+                if (!lastRec) {
+                    return `
+                        <div class="p-3 bg-gray-50 rounded-xl flex justify-between items-center text-xs">
+                            <div>
+                                <p class="font-bold text-gray-700">${v}</p>
+                                <p class="text-gray-400">ยังไม่มีประวัติการบันทึก</p>
+                            </div>
+                            <span class="bg-gray-200 text-gray-600 px-2 py-1 rounded-md text-[10px]">No Data</span>
+                        </div>
+                    `;
+                }
+
+                const statusBadge = lastRec.type === 'START'
+                    ? `<span class="bg-emerald-100 text-emerald-700 font-medium px-2 py-0.5 rounded-full text-[10px]">กำลังใช้งาน</span>`
+                    : `<span class="bg-slate-100 text-slate-600 font-medium px-2 py-0.5 rounded-full text-[10px]">จอดพัก/จบงาน</span>`;
+
+                return `
+                    <div class="p-3 bg-slate-50 border border-slate-100 rounded-xl flex justify-between items-center">
+                        <div class="space-y-0.5">
+                            <div class="flex items-center gap-2">
+                                <span class="font-bold text-gray-800 text-xs">${v}</span>
+                                ${statusBadge}
+                            </div>
+                            <p class="text-[11px] text-gray-500">ไมล์ล่าสุด: <span class="font-mono text-gray-700 font-semibold">${lastRec.odometer.toLocaleString()} กม.</span> (${lastRec.driver})</p>
+                        </div>
+                        <div class="text-right text-[10px] text-gray-400">
+                            ${new Date(lastRec.timestamp).toLocaleDateString('th-TH')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // --- SETTINGS MANAGEMENT ---
+        function renderSettingLists() {
+            const vList = document.getElementById('setting-vehicles-list');
+            vList.innerHTML = state.vehicles.map((v, i) => `
+                <li class="py-2.5 flex justify-between items-center">
+                    <span class="font-medium text-gray-700">${v}</span>
+                    <button onclick="removeVehicle(${i})" class="text-rose-500 hover:text-rose-700 text-xs">
+                        <i class="fa-solid fa-trash-can"></i> ลบ
+                    </button>
+                </li>
+            `).join('');
+
+            const dList = document.getElementById('setting-drivers-list');
+            dList.innerHTML = state.drivers.map((d, i) => `
+                <li class="py-2.5 flex justify-between items-center">
+                    <span class="font-medium text-gray-700">${d}</span>
+                    <button onclick="removeDriver(${i})" class="text-rose-500 hover:text-rose-700 text-xs">
+                        <i class="fa-solid fa-trash-can"></i> ลบ
+                    </button>
+                </li>
+            `).join('');
+        }
+
+        function addVehicle() {
+            const input = document.getElementById('new-vehicle-input');
+            const val = input.value.trim();
+            if (val && !state.vehicles.includes(val)) {
+                state.vehicles.push(val);
+                input.value = '';
+                saveState();
+                renderVehicleOptions();
+                renderSettingLists();
+                showToast('เพิ่มทะเบียนรถสำเร็จ');
+            }
+        }
+
+        function removeVehicle(index) {
+            state.vehicles.splice(index, 1);
+            saveState();
+            renderVehicleOptions();
+            renderSettingLists();
+            showToast('ลบทะเบียนรถเรียบร้อย');
+        }
+
+        function addDriver() {
+            const input = document.getElementById('new-driver-input');
+            const val = input.value.trim();
+            if (val && !state.drivers.includes(val)) {
+                state.drivers.push(val);
+                input.value = '';
+                saveState();
+                renderDriverOptions();
+                renderSettingLists();
+                showToast('เพิ่มชื่อคนขับสำเร็จ');
+            }
+        }
+
+        function removeDriver(index) {
+            state.drivers.splice(index, 1);
+            saveState();
+            renderDriverOptions();
+            renderSettingLists();
+            showToast('ลบคนขับเรียบร้อย');
+        }
+
+        // --- TOAST NOTIFICATION UTILITY ---
+        function showToast(message, iconClass = 'fa-circle-check', isError = false) {
+            const toast = document.getElementById('toast');
+            const msg = document.getElementById('toast-message');
+            const icon = document.getElementById('toast-icon');
+
+            msg.innerText = message;
+            icon.className = `fa-solid ${iconClass} ${isError ? 'text-rose-400' : 'text-emerald-400'}`;
+
+            toast.classList.remove('opacity-0', 'pointer-events-none');
+            toast.classList.add('opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('opacity-100');
+                toast.classList.add('opacity-0', 'pointer-events-none');
+            }, 2500);
+        }
+    </script>
+</body>
+</html>
